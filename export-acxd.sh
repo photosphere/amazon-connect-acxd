@@ -83,8 +83,8 @@ done
 
 # --------------------------------------------------------------------- 工具函数
 
-ERRORS_FILE="$(mktemp -t acxd-errors)"
-APPS_FILE="$(mktemp -t acxd-apps)"
+ERRORS_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-errors.XXXXXX")"
+APPS_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-apps.XXXXXX")"
 trap 'rm -f "$ERRORS_FILE" "$APPS_FILE"' EXIT
 
 record_error() { # 参数: 资源, HTTP 状态码, 消息
@@ -123,7 +123,7 @@ api() {
 api_list() {
   local path="$1" max="${2-100}" sep token page tmp q
   case "$path" in *\?*) sep='&' ;; *) sep='?' ;; esac
-  tmp="$(mktemp -t acxd-page)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/acxd-page.XXXXXX")"
   token=""
   while :; do
     q=""
@@ -515,8 +515,8 @@ fi
 
 # --------------------------------------------------------------------- 清单
 
-apps_json="$(jq -cs '.' "$APPS_FILE" 2>/dev/null || echo '[]')"
-error_json="$(jq -cs '.' "$ERRORS_FILE" 2>/dev/null || echo '[]')"
+apps_json="$(jq -cs '.' "$APPS_FILE" 2>/dev/null)" || apps_json='[]'
+error_json="$(jq -cs '.' "$ERRORS_FILE" 2>/dev/null)" || error_json='[]'
 jq -n \
   --arg exportedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --arg sourceUrl "$SOURCE_URL" \

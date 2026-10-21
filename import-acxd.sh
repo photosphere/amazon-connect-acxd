@@ -121,10 +121,10 @@ done
 # --------------------------------------------------------------------- 工具函数
 
 TS="$(date -u +%Y%m%d-%H%M%S)"
-ERRORS_FILE="$(mktemp -t acxd-imp-err)"
-RESULT_FILE="$(mktemp -t acxd-imp-res)"
-FLOW_MAP_FILE="$(mktemp -t acxd-imp-map)"       # 当前应用的重命名映射，每行 "旧flowId<TAB>新flowId"
-FLOW_MAP_ALL_FILE="$(mktemp -t acxd-imp-mapall)" # 所有应用累计的重命名映射，只用于最后的报告
+ERRORS_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-err.XXXXXX")"
+RESULT_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-res.XXXXXX")"
+FLOW_MAP_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-map.XXXXXX")"       # 当前应用的重命名映射，每行 "旧flowId<TAB>新flowId"
+FLOW_MAP_ALL_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-mapall.XXXXXX")" # 所有应用累计的重命名映射，只用于最后的报告
 PAYLOAD_DIR=""
 if [ "$DRY_RUN" -eq 1 ]; then
   PAYLOAD_DIR="./import-dryrun-$TS"
@@ -188,7 +188,7 @@ err_message() { printf '%s' "$LAST_BODY" | jq -r '.message // .__type // .' 2>/d
 api_list() {
   local path="$1" sep token page tmp q
   case "$path" in *\?*) sep='&' ;; *) sep='?' ;; esac
-  tmp="$(mktemp -t acxd-imp-page)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-page.XXXXXX")"
   token=""
   while :; do
     q="${sep}maxResults=100"
@@ -217,7 +217,7 @@ write_request() {
       '{applicationId:"dry-run-application-id", buildId:"dry-run-build-id", deploymentId:"dry-run-deployment-id", status:"BUILT", deploymentStatus:"deployed", _dryRun:{method:$m, path:$p}}')"
     return 0
   fi
-  tmp="$(mktemp -t acxd-imp-body)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-body.XXXXXX")"
   printf '%s' "$payload" > "$tmp"
   request "$method" "$path" "$tmp"
   local rc=$?
@@ -484,7 +484,7 @@ fi
 EXISTING_FLOWS=""
 EXISTING_APPS=""
 EXISTING_CTX_VARS=""
-APPS_JSON_FILE="$(mktemp -t acxd-imp-apps)"
+APPS_JSON_FILE="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-apps.XXXXXX")"
 printf '[]' > "$APPS_JSON_FILE"
 if [ "$DRY_RUN" -eq 0 ]; then
   echo "正在读取目标 workspace 现有资源 ..."
@@ -640,7 +640,7 @@ import_flows() { # 参数: 应用目录；成功返回 0
   local app_dir="$1" plan_file f line target_id action file payload ok=0 fail=0
   [ -d "$app_dir/flows" ] || { echo "    该应用目录下没有 flows/，跳过 flow 导入"; return 0; }
 
-  plan_file="$(mktemp -t acxd-imp-plan)"
+  plan_file="$(mktemp "${TMPDIR:-/tmp}/acxd-imp-plan.XXXXXX")"
   : > "$FLOW_MAP_FILE"
   for f in "$app_dir"/flows/*.json; do
     [ -f "$f" ] || continue
@@ -918,8 +918,8 @@ done
 
 # --------------------------------------------------------------------- 汇总
 
-results_json="$(jq -cs '.' "$RESULT_FILE" 2>/dev/null || echo '[]')"
-errors_json="$(jq -cs '.' "$ERRORS_FILE" 2>/dev/null || echo '[]')"
+results_json="$(jq -cs '.' "$RESULT_FILE" 2>/dev/null)" || results_json='[]'
+errors_json="$(jq -cs '.' "$ERRORS_FILE" 2>/dev/null)" || errors_json='[]'
 flow_map_json="$(awk -F'\t' 'BEGIN{printf "["} {if(NR>1) printf ","; printf "{\"from\":\"%s\",\"to\":\"%s\"}", $1, $2} END{printf "]"}' "$FLOW_MAP_ALL_FILE")"
 REPORT="./import-report-$TS.json"
 
